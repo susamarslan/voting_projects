@@ -7,9 +7,29 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <header>
-    <a href="/">voting_projects 🤔</a>
+  <header class="topbar">
+    <a href="/" class="logo">voting_projects 🤔</a>
+    <nav aria-label="Hesap">
+      {% if user.is_authenticated %}
+        <span class="username">@{{ user.username }}</span>
+        <form method="post" action="{% url 'logout' %}" class="inline-form">
+          {% csrf_token %}
+          <button type="submit">Çıkış</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}">Giriş</a>
+        <a href="{% url 'register' %}">Kayıt ol</a>
+      {% endif %}
+    </nav>
   </header>
+
+  {% if messages %}
+    <div class="messages" role="status" aria-live="polite">
+      {% for message in messages %}
+        <p class="message message-{{ message.tags }}">{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
 
   <main>
     {% block content %}{% endblock %}
