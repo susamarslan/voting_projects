@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Proje
 
-voting_projects: kullanıcıların kararsız kaldıkları konularda anket açıp başkalarına danıştığı bir web uygulaması. Her ankette 2–5 seçenek olur. Takip sistemi yok, tüm anketler tek akışta görünür. Misafirler oy verebilir, anket açmak için üyelik gerekir.
+voting_projects (arayüzdeki adı **Kararsızım**; `voting_projects` kullanıcıya hiçbir yerde gösterilmez): kullanıcıların kararsız kaldıkları konularda anket açıp başkalarına danıştığı bir web uygulaması. Her ankette 2–5 seçenek olur. Takip sistemi yok, tüm anketler tek akışta görünür. Misafirler oy verebilir, anket açmak için üyelik gerekir.
 
 Yığın: Django 5.2 + Python 3.12, Supabase (yalnızca Postgres olarak), Django şablonları + saf HTML/CSS/JS, WhiteNoise, Vercel.
 
@@ -12,7 +12,7 @@ Yığın: Django 5.2 + Python 3.12, Supabase (yalnızca Postgres olarak), Django
 
 ## Çalışma kuralları
 
-- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Şu ana kadar Faz 0–3 tamamlandı.
+- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Şu ana kadar Faz 0–4 tamamlandı.
 - Git commit/push işlerini kullanıcı yapar; commit atma.
 - Frontend framework veya build adımı ekleme (React, Vue, Tailwind, Bootstrap, npm yok).
 - Yeni paket eklemeden önce sor.
@@ -48,5 +48,7 @@ Linter/formatter yapılandırılmadı.
   - Seçenek/sonuç markup'ı `templates/polls/_poll_options.html` ile `static/js/vote.js`'teki `renderResults` arasında ikizdir; biri değişirse diğeri de güncellenmeli.
 - **Anket sorguları:** Kart gösteren her liste `polls/views.py`'deki `poll_queryset()`'i kullanır (`select_related` + `prefetch_related("options")` + `total_votes` annotate). Burada `order_by` açıkça verilir, çünkü Django GROUP BY içeren sorgularda `Meta.ordering`'i uygulamaz. Akışın sabit sorgu sayısı `assertNumQueries` testiyle korunur.
 - **Anket formu:** Seçenekler ModelForm alanı değil; view `request.POST.getlist("options")` ile `PollForm(options=...)`'a verir. Seçenek hataları `form.option_errors` içinde tutulur, `is_valid()` bunları da hesaba katar. Şablon JS yokken 5 input çizer; `static/js/create_poll.js` boşları gizleyip ekle/sil ve aynı doğrulamayı yapar (sunucu kuralları değişirse JS'i de güncelle).
+- **Arayüz:** Tek stil dosyası `static/css/style.css`; renkler plandaki CSS değişkenleri. Seçenek rengi `data-index="1..5"` özniteliğinden `--c`/`--c-soft` olarak gelir (kartlar, sonuç çubukları ve oluşturma formu aynı mekanizmayı kullanır). `static/js/app.js` her sayfada yüklenir: Django messages'ı toast'a çevirir, `window.showToast(mesaj, "success"|"error"|"info")` sağlar, `data-confirm` ve `data-copy-url` davranışlarını yönetir. `500.html` bağlamsız render edildiği için `base.html`'i extend etmez.
+- Geliştirmede WhiteNoise statik dosyaları 60 sn önbelleğe aldırır; JS/CSS değişikliği tarayıcıda görünmüyorsa önbelleği atlayarak yenile.
 - URL isimleri: hesap rotaları namespace'siz (`login`, `register`, `logout`), anket rotaları `polls:` namespace'inde. Sayfalama parametresi `?sayfa=`.
 - Şablonlar kökteki `templates/` altında (ortak parçalar `templates/partials/`), statik dosyalar `static/` altında (app içinde değil). Child şablonlarda `{% static %}` için `{% load static %}` ayrıca yazılmalı.

@@ -108,6 +108,7 @@
         if (data && data.ok) {
           renderResults(card, data);
           card.setAttribute("aria-busy", "false");
+          if (window.showToast) window.showToast("Oyun kaydedildi 🎉", "success");
         } else {
           setLocked(card, false);
           showError(card, (data && data.error) || "Oy kaydedilemedi, tekrar dene.");

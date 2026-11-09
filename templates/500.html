@@ -1,0 +1,25 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}500 sayfası bağlamsız render edilir (kullanıcı, mesaj, CSRF yok); bu yüzden base.html'i extend etmez.{% endcomment %}
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bir şeyler ters gitti · Kararsızım</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/" class="logo"><span class="logo-text">kararsızım</span> <span aria-hidden="true">🤔</span></a>
+    </div>
+  </header>
+  <main class="container">
+    <div class="empty-state">
+      <span class="empty-emoji" aria-hidden="true">🙈</span>
+      <h1>Eyvah, sunucumuz da kararsız kaldı!</h1>
+      <p>Bir şeyler ters gitti. Birkaç saniye sonra tekrar dener misin?</p>
+      <a href="/" class="button">Ana sayfaya dön</a>
+    </div>
+  </main>
+</body>
+</html>

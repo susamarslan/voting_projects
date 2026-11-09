@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static poll_extras %}
 
-{% block title %}{{ poll.question }} · voting_projects{% endblock %}
+{% block title %}{{ poll.question }} · Kararsızım{% endblock %}
 
 {% block content %}
   <article class="poll-card poll-detail" data-poll-id="{{ poll.pk }}">
@@ -11,9 +11,12 @@
     </p>
     <h1 class="poll-question">{{ poll.question }}</h1>
     {% if poll.description %}<p class="poll-description">{{ poll.description|linebreaksbr }}</p>{% endif %}
-    {% if not poll.is_active %}<p class="poll-closed">Bu anket kapatıldı.</p>{% endif %}
+    {% if not poll.is_active %}<p class="poll-closed">Bu anket kapatıldı</p>{% endif %}
     {% include "polls/_poll_options.html" %}
-    <p class="poll-total"><span class="total-count">{{ poll.total_votes }}</span> oy</p>
+    <div class="poll-footer">
+      <p class="poll-total"><span class="total-count">{{ poll.total_votes }}</span> oy</p>
+      <button type="button" class="button-secondary" data-copy-url="{{ request.build_absolute_uri }}">🔗 Linki kopyala</button>
+    </div>
   </article>
 {% endblock %}
 

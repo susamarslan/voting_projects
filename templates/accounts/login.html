@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Giriş · voting_projects{% endblock %}
+{% block title %}Giriş · Kararsızım{% endblock %}
 
 {% block content %}
-  <h1>Giriş yap</h1>
-  <form method="post" novalidate>
-    {% csrf_token %}
-    {% include "partials/form_fields.html" %}
-    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-    <button type="submit">Giriş yap</button>
-  </form>
-  <p class="cta-register">Hesabın yok mu? <a href="{% url 'register' %}"><strong>Kayıt ol</strong></a></p>
+  <section class="form-card">
+    <h1>Tekrar hoş geldin! 💜</h1>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/form_fields.html" %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button type="submit">Giriş yap</button>
+    </form>
+    <p class="form-footer cta-register">Hesabın yok mu? <a href="{% url 'register' %}">Hemen kayıt ol</a></p>
+  </section>
 {% endblock %}

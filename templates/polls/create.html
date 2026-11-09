@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Anket oluştur · voting_projects{% endblock %}
+{% block title %}Anket oluştur · Kararsızım{% endblock %}
 
 {% block content %}
-  <h1>Anket oluştur</h1>
+  <section class="form-card">
+  <h1>Neye karar veremiyorsun? 🤔</h1>
   <form method="post" id="poll-form" novalidate>
     {% csrf_token %}
     {% include "partials/form_fields.html" %}
@@ -21,14 +22,15 @@
           </li>
         {% endfor %}
       </ol>
-      <button type="button" id="add-option" hidden>+ Seçenek ekle</button>
+      <button type="button" id="add-option" class="button-secondary" hidden>+ Seçenek ekle</button>
       <div id="option-errors" class="form-errors" role="alert"{% if not form.option_errors %} hidden{% endif %}>
         {% for error in form.option_errors %}<p class="error">{{ error }}</p>{% endfor %}
       </div>
     </fieldset>
 
-    <button type="submit">Yayınla</button>
+    <button type="submit">Yayınla 🚀</button>
   </form>
+  </section>
 {% endblock %}
 
 {% block extra_js %}

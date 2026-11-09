@@ -12,6 +12,8 @@
 
 **voting_projects**, kullanıcıların kararsız kaldıkları konularda diğer kullanıcılara anket açarak danıştığı bir web uygulamasıdır.
 
+> **Karar (2026-11-09):** Arayüzde görünen ad **"Kararsızım"** (logoda küçük harfle "kararsızım 🤔"). `voting_projects` yalnızca repo/proje ve kod içi adlar için kullanılır (ör. `voting_projects_voter` çerezi); kullanıcıya hiçbir yerde gösterilmez. Akışın ilk sayfasında kullanıcıya ne yapabileceğini anlatan kısa bir karşılama ("Karar veremedin mi? Sor, herkes seçsin.") bulunur.
+
 - Örnek: *"Bugün sinemaya mı gitsem, restorana mı?"*
 - Her ankette **en az 2, en fazla 5** seçenek bulunur.
 - **Takip sistemi yoktur.** Herkes platformdaki tüm anketleri tek bir akışta görür.
@@ -240,7 +242,7 @@ Hatalar: zaten oy verilmişse `409`, geçersiz seçenekse `400`, anket pasifse `
 - Soru başlıkları kalın (700–800), seçenekler 600.
 
 ### Bileşenler
-- **Üst bar:** Solda "voting_projects" logosu (mor→pembe gradyan metin + küçük 🤔 emoji). Sağda: giriş yapılmamışsa "Giriş" + "Kayıt ol"; yapılmışsa `@kullaniciadi`, "Anketlerim", "Çıkış". Her durumda belirgin bir **"+ Anket oluştur"** butonu.
+- **Üst bar:** Solda "kararsızım" logosu (mor→pembe gradyan metin + küçük 🤔 emoji). Sağda: giriş yapılmamışsa "Giriş" + "Kayıt ol"; yapılmışsa `@kullaniciadi`, "Anketlerim", "Çıkış". Her durumda belirgin bir **"+ Anket oluştur"** butonu.
 - **Anket kartı:** Beyaz, `--radius` köşeler, hafif mor gölge. Üstte `@kullaniciadi · 2 saat önce`, altında soru, altında seçenekler, en altta "37 oy".
 - **Seçenek butonları (oy öncesi):** Tam genişlik, seçeneğin soft rengi arka plan, solunda renkli küçük daire. Hover'da hafif büyüme ve renk koyulaşması.
 - **Sonuç çubukları (oy sonrası):** Aynı satır, arka planda seçenek renginde soldan sağa dolan bir çubuk (CSS transition, ~600 ms), sağda yüzde. Kullanıcının seçtiği satırda ✓ işareti ve kalın kenar.

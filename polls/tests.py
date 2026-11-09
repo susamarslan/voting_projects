@@ -321,3 +321,17 @@ class VoteTests(TestCase):
         self.assertFalse(polls[self.poll.pk].can_vote)
         self.assertTrue(polls[other.pk].can_vote)
         self.assertFalse(polls[other.pk].show_results)
+
+
+class ErrorPageTests(TestCase):
+    def test_404_page(self):
+        # Test koşucusu DEBUG=False çalıştığından özel 404.html kullanılır.
+        response = self.client.get("/olmayan-sayfa/")
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, "Bu sayfa da kararsız kalmış", status_code=404)
+
+    def test_500_page_renders_without_context(self):
+        from django.template.loader import render_to_string
+
+        html = render_to_string("500.html")
+        self.assertIn("sunucumuz da kararsız kaldı", html)
