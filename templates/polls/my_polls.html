@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static poll_extras %}
+
+{% block title %}Anketlerim · voting_projects{% endblock %}
+
+{% block content %}
+  <h1>Anketlerim</h1>
+  {% for poll in page %}
+    <article class="poll-card">
+      <p class="poll-meta">
+        <time datetime="{{ poll.created_at|date:'c' }}">{{ poll.created_at|relative_time }}</time>
+        · {{ poll.total_votes }} oy
+        {% if not poll.is_active %}· kapalı{% endif %}
+      </p>
+      <h2 class="poll-question"><a href="{{ poll.get_absolute_url }}">{{ poll.question }}</a></h2>
+      <form method="post" action="{% url 'polls:delete' poll.pk %}"
+            data-confirm="Bu anketi silmek istediğine emin misin? Bu işlem geri alınamaz.">
+        {% csrf_token %}
+        <button type="submit" class="button-danger" aria-label="“{{ poll.question }}” anketini sil">Sil</button>
+      </form>
+    </article>
+  {% empty %}
+    <div class="empty-state">
+      <p>Henüz bir anket açmadın. Kararsız kaldığın bir şey var mı?</p>
+      <a href="{% url 'polls:create' %}" class="button">+ Anket oluştur</a>
+    </div>
+  {% endfor %}
+  {% include "partials/pagination.html" %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/app.js' %}" defer></script>
+{% endblock %}

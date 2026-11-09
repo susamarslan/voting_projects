@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Anket oluştur · voting_projects{% endblock %}
+
+{% block content %}
+  <h1>Anket oluştur</h1>
+  <form method="post" id="poll-form" novalidate>
+    {% csrf_token %}
+    {% include "partials/form_fields.html" %}
+
+    <fieldset class="options-fieldset">
+      <legend>Seçenekler <small>(2–5 arası)</small></legend>
+      <ol id="option-list" class="option-list">
+        {% for value in form.option_values %}
+          <li class="option-row" data-index="{{ forloop.counter }}">
+            <label for="option-{{ forloop.counter }}" class="visually-hidden">Seçenek {{ forloop.counter }}</label>
+            <input type="text" name="options" id="option-{{ forloop.counter }}" value="{{ value }}"
+                   maxlength="100" placeholder="Seçenek {{ forloop.counter }}">
+            <button type="button" class="remove-option" aria-label="Seçenek {{ forloop.counter }}'i kaldır" hidden>×</button>
+          </li>
+        {% endfor %}
+      </ol>
+      <button type="button" id="add-option" hidden>+ Seçenek ekle</button>
+      <div id="option-errors" class="form-errors" role="alert"{% if not form.option_errors %} hidden{% endif %}>
+        {% for error in form.option_errors %}<p class="error">{{ error }}</p>{% endfor %}
+      </div>
+    </fieldset>
+
+    <button type="submit">Yayınla</button>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/create_poll.js' %}" defer></script>
+{% endblock %}

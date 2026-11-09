@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {% for poll in page %}
+    {% include "polls/_poll_card.html" %}
+  {% empty %}
+    <div class="empty-state">
+      <p>Burası çok sessiz... İlk kararsızlığı sen paylaş!</p>
+      <a href="{% url 'polls:create' %}" class="button">+ Anket oluştur</a>
+    </div>
+  {% endfor %}
+  {% include "partials/pagination.html" %}
+{% endblock %}

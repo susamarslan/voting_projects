@@ -1,0 +1,14 @@
+{% load poll_extras %}
+<article class="poll-card">
+  <p class="poll-meta">
+    <span class="poll-author">@{{ poll.author.username }}</span>
+    · <time datetime="{{ poll.created_at|date:'c' }}">{{ poll.created_at|relative_time }}</time>
+  </p>
+  <h2 class="poll-question"><a href="{{ poll.get_absolute_url }}">{{ poll.question }}</a></h2>
+  <ul class="poll-options">
+    {% for option in poll.options.all %}
+      <li class="poll-option" data-index="{{ forloop.counter }}">{{ option.text }}</li>
+    {% endfor %}
+  </ul>
+  <p class="poll-total">{{ poll.total_votes }} oy</p>
+</article>

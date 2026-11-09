@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load poll_extras %}
+
+{% block title %}{{ poll.question }} · voting_projects{% endblock %}
+
+{% block content %}
+  <article class="poll-card poll-detail">
+    <p class="poll-meta">
+      <span class="poll-author">@{{ poll.author.username }}</span>
+      · <time datetime="{{ poll.created_at|date:'c' }}" title="{{ poll.created_at|date:'j F Y H:i' }}">{{ poll.created_at|relative_time }}</time>
+    </p>
+    <h1 class="poll-question">{{ poll.question }}</h1>
+    {% if poll.description %}<p class="poll-description">{{ poll.description|linebreaksbr }}</p>{% endif %}
+    {% if not poll.is_active %}<p class="poll-closed">Bu anket kapatıldı.</p>{% endif %}
+    <ul class="poll-options">
+      {% for option in poll.options.all %}
+        <li class="poll-option" data-index="{{ forloop.counter }}">{{ option.text }}</li>
+      {% endfor %}
+    </ul>
+    <p class="poll-total">{{ poll.total_votes }} oy</p>
+  </article>
+{% endblock %}
