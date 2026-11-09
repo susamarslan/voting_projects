@@ -1,8 +1,10 @@
 # voting_projects — Proje Planı ve Claude Code Promptları
 
-> Bu dosyayı projenin kök dizinine koy. Claude Code'a her fazda şunu söyle:
-> **"VOTING_PROJECTS_PLAN.md dosyasını oku ve Faz X'i uygula."**
+> Bu dosya `docs/VOTING_PROJECTS_PLAN.md` konumundadır. Claude Code'a her fazda şunu söyle:
+> **"docs/VOTING_PROJECTS_PLAN.md dosyasını oku ve Faz X'i uygula."**
 > Fazları sırayla ilerlet. Bir faz bitip test edilmeden diğerine geçme.
+>
+> **Çalışma kararları (2026-11-09):** Python 3.12 (.venv 3.12 ile yeniden kurulur). Her faz sonunda durulur, kullanıcı elle test edip onay verince sonraki faza geçilir. Git commit/push işlemlerini kullanıcı yapar; Claude commit atmaz.
 
 ---
 
@@ -133,14 +135,16 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 | `poll` | FK → Poll | CASCADE |
 | `option` | FK → Option | CASCADE |
 | `user` | FK → User, null=True | Üye oyu ise dolu |
-| `voter_token` | CharField(64), null=True | Anonim oy ise dolu |
+| `voter_token` | CharField(64), null=True | Oyun verildiği tarayıcının çerez token'ı (üye oylarında da kaydedilir) |
 | `created_at` | DateTimeField | `auto_now_add` |
 
 **Kısıtlar (veritabanı seviyesinde):**
 - `UniqueConstraint(fields=["poll", "user"], condition=Q(user__isnull=False))`
 - `UniqueConstraint(fields=["poll", "voter_token"], condition=Q(voter_token__isnull=False))`
-- `CheckConstraint`: `user` veya `voter_token`'dan tam olarak biri dolu olmalı.
+- `CheckConstraint`: `user` veya `voter_token`'dan **en az biri** dolu olmalı.
 - `option.poll == poll` olduğu view'da doğrulanır.
+
+> **Karar (2026-11-09):** Üye oy verirken o tarayıcının çerez token'ı da kaydedilir. Böylece aynı tarayıcıdan misafirken oy verip sonra giriş yaparak (veya tersi) ikinci oy verilemez. "Oy verdi mi?" kontrolü: üye ise `user` **veya** `voter_token` eşleşmesi; misafir ise `voter_token` eşleşmesi.
 
 ---
 
