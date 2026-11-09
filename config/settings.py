@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +21,23 @@ def env_list(name, default=""):
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-yerel-gelistirme-anahtari")
 DEBUG = os.getenv("DEBUG", "False").lower() in ("1", "true", "yes")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("DEBUG=False iken SECRET_KEY ortam değişkeni zorunludur.")
+    SECRET_KEY = "django-insecure-yerel-gelistirme-anahtari"
+
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+
+# Vercel'in her deploy'a verdiği alan adlarını (önizleme + production) otomatik ekle.
+for _var in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
+    _host = os.getenv(_var, "").strip()
+    if _host and _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
+        CSRF_TRUSTED_ORIGINS.append(f"https://{_host}")
 
 
 INSTALLED_APPS = [
@@ -72,7 +86,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Veritabanı: DATABASE_URL tanımlıysa (Supabase/Postgres) onu, değilse SQLite kullan.
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 if DATABASE_URL:
-    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=0)}
+    # conn_max_age=0: Vercel serverless + Supabase pooler'da bağlantı tutulmaz.
+    # ssl_require: Supabase bağlantıları SSL ile yapılır.
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True)}
+    # Transaction pooler (pgbouncer/Supavisor, port 6543) server-side cursor desteklemez.
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 else:
     DATABASES = {
         "default": {
@@ -103,6 +121,31 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# Vercel, STATIC_ROOT tanımlı olduğu için build sırasında collectstatic'i kendisi çalıştırır
+# ve dosyaları CDN'den sunar.
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        # Production'da dosya adları içerik hash'i alır (önbellek sorunu olmaz).
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if DEBUG
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Production güvenlik ayarları (Vercel HTTPS'i proxy arkasında sonlandırır).
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    # HSTS'yi Vercel *.vercel.app için zaten gönderiyor. Özel alan adında yanlış bir HSTS
+    # ayarı geri alınamaz; bilinçli olarak burada açılmıyor.
+    SILENCED_SYSTEM_CHECKS = ["security.W004"]
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"

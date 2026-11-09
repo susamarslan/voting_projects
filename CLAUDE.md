@@ -12,7 +12,7 @@ Yığın: Django 5.2 + Python 3.12, Supabase (yalnızca Postgres olarak), Django
 
 ## Çalışma kuralları
 
-- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Şu ana kadar Faz 0–4 tamamlandı.
+- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Faz 0–5'in kodu tamamlandı; deploy adımları README.md'de.
 - Git commit/push işlerini kullanıcı yapar; commit atma.
 - Frontend framework veya build adımı ekleme (React, Vue, Tailwind, Bootstrap, npm yok).
 - Yeni paket eklemeden önce sor.
@@ -37,7 +37,10 @@ Linter/formatter yapılandırılmadı.
 
 ## Mimari notlar
 
-- **Ayarlar (`config/settings.py`):** Her şey `.env` dosyasından okunur (`.env.example`'a bak). `DEBUG` tanımlı değilse **False** olur; yerelde `.env` içinde `DEBUG=True` gerekir. `DATABASE_URL` boşsa SQLite, doluysa `dj-database-url` ile Postgres kullanılır (`conn_max_age=0`: Supabase transaction pooler ve Vercel serverless için).
+- **Ayarlar (`config/settings.py`):** Her şey `.env` dosyasından okunur (`.env.example`'a bak). `DEBUG` tanımlı değilse **False** olur; yerelde `.env` içinde `DEBUG=True` gerekir. `DEBUG=False` iken `SECRET_KEY` yoksa uygulama başlamaz. `DATABASE_URL` boşsa SQLite, doluysa `dj-database-url` ile Postgres kullanılır (`conn_max_age=0`, `ssl_require`, `DISABLE_SERVER_SIDE_CURSORS`: Supabase transaction pooler ve Vercel serverless için). `DEBUG=False`'ta statik dosyalar WhiteNoise `CompressedManifestStaticFilesStorage` ile hash'lenir (önce `collectstatic` gerekir).
+- **Deploy (Vercel):** `vercel.json` yok; Vercel Django'yu `manage.py` + `WSGI_APPLICATION` üzerinden kendisi tanır ve `collectstatic`'i kendisi çalıştırır. Python sürümü `.python-version`'da. `VERCEL_URL` vb. sistem değişkenleri `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS`'e otomatik eklenir. Migration'lar build'de değil, yerelden 5432 portlu Supabase adresiyle çalıştırılır.
+- **Supabase:** Proje `kararsizim` (ref `exdmzqdfupxmifwqwuny`, eu-central-1). Django `django_app` rolüyle bağlanır (tabloların sahibi); adresler git'e girmeyen `.env.supabase`'de (`SUPABASE_SESSION_URL` 5432, `SUPABASE_TRANSACTION_URL` 6543). Yerel `.env`'deki `DATABASE_URL` boş kalır; Supabase'e komut çalıştırırken `DATABASE_URL` ortam değişkeni olarak verilir (README'de örnek var). Bu adresleri/parolayı sohbete veya çıktıya yazdırma.
+- **RLS:** `polls/migrations/0002_enable_rls.py` Supabase'de tüm Django tablolarında Row Level Security'yi açar (yalnızca PostgreSQL'de). Yeni bir model eklenirse onun tablosu için de RLS açan yeni bir migration yazılmalı.
 - **Kullanıcı modeli (`accounts.User`):** `AbstractUser`'dan türetilir ve giriş alanı e-postadır (`USERNAME_FIELD = "email"`). Bu yüzden `authenticate(username=...)` çağrısına e-posta verilir.
   - E-posta `save()` sırasında küçük harfe çevrilir. `UserManager.get_by_natural_key` `iexact` ile eşleştirdiği için giriş büyük/küçük harf duyarsızdır.
   - Kullanıcı adının büyük/küçük harf duyarsız benzersizliği veritabanında `Lower("username")` UniqueConstraint ile sağlanır. Bu kısıt formlarda ayrıca `iexact` kontrolüyle Türkçe hata mesajına çevrilmelidir.

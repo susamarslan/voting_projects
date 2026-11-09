@@ -61,8 +61,8 @@ voting_projects/
 ├── CLAUDE.md                  # Faz 0'da oluşturulacak kısa kurallar dosyası
 ├── manage.py
 ├── requirements.txt
-├── vercel.json
-├── build_files.sh             # Vercel build adımı (collectstatic)
+├── .python-version            # Vercel için Python 3.12 (vercel.json / build_files.sh gerekmez, bkz. Faz 5 notu)
+├── README.md
 ├── .env.example
 ├── .gitignore
 ├── config/                    # Django proje ayarları
@@ -463,6 +463,8 @@ VOTING_PROJECTS_PLAN.md'yi oku ve FAZ 5'i uygula. Önce Vercel'in güncel Python
 
 Migration'ları Vercel build'inde çalıştırma; README'de yerelden çalıştırılacağını açıkla. Bittiğinde benim elle yapmam gereken adımları numaralı liste olarak ver.
 ```
+
+> **Uygulama notu (2026-11-09):** Vercel'in güncel Django dokümantasyonu yukarıdaki yapılandırmanın 1. ve 2. maddesini gereksiz kılıyor. Vercel `manage.py`'den projeyi tanır, giriş noktasını `WSGI_APPLICATION`'dan bulur, `STATIC_ROOT` varsa `collectstatic`'i kendisi çalıştırıp dosyaları CDN'den sunar. `builds` + `@vercel/python` ise artık önerilmiyor. Bu yüzden `vercel.json`, `build_files.sh` ve `app = application` eklenmedi; Python sürümü `.python-version` ile belirlendi. Ek olarak: `DEBUG=False` iken `SECRET_KEY` zorunlu, Vercel'in `*.vercel.app` adresleri `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS`'e otomatik ekleniyor, `SECURE_SSL_REDIRECT=True`, RLS'e `django_migrations` tablosu da dahil.
 
 **Kontrol listesi:**
 - [ ] Vercel adresi açılıyor, CSS yükleniyor
