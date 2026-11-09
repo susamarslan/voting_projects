@@ -101,11 +101,12 @@ class FeedAndDetailTests(TestCase):
     def test_feed_query_count_does_not_grow_with_polls(self):
         for i in range(5):
             make_poll(self.ali, question=f"Anket numarası {i}")
-        with self.assertNumQueries(3):  # sayım + anketler + seçenekler
+        with self.assertNumQueries(4):  # sayım + anketler + seçenekler + kullanıcının oyları
             self.client.get("/")
         for i in range(5):
             make_poll(self.ayse, question=f"Başka anket {i}")
-        with self.assertNumQueries(3):
+            Vote.objects.create(poll=Poll.objects.first(), option=Option.objects.first(), voter_token=f"t{i}")
+        with self.assertNumQueries(4):
             self.client.get("/")
 
     def test_feed_paginates_by_20(self):
@@ -120,7 +121,7 @@ class FeedAndDetailTests(TestCase):
         response = self.client.get(poll.get_absolute_url())
         self.assertContains(response, poll.question)
         self.assertContains(response, "Akşam için karar veremedim.")
-        self.assertContains(response, "1 oy")
+        self.assertContains(response, '<span class="total-count">1</span> oy', html=False)
         self.assertNotContains(response, "ali@example.com")
 
     def test_detail_404(self):
@@ -190,3 +191,133 @@ class RelativeTimeTests(TestCase):
         # timesince sayı ile birim arasında bölünmez boşluk (\xa0) kullanır.
         self.assertEqual(relative_time(now - timedelta(hours=3, minutes=20)), "3\xa0saat önce")
         self.assertEqual(relative_time(now - timedelta(days=2, hours=5)), "2\xa0gün önce")
+
+
+class VoteTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user("ali@example.com", "ali", PASSWORD)
+        self.member = User.objects.create_user("ayse@example.com", "ayse", PASSWORD)
+        self.poll = make_poll(self.owner, options=("Sinema", "Restoran", "Evde kal"))
+        self.sinema, self.restoran, self.evde = self.poll.options.all()
+        self.url = reverse("polls:vote", args=[self.poll.pk])
+        self.client.get("/")  # tarayıcı çerezini (voter token) oluştur
+
+    def vote_json(self, option, client=None):
+        client = client or self.client
+        return client.post(
+            self.url, {"option_id": option.pk}, HTTP_ACCEPT="application/json"
+        )
+
+    def test_voter_cookie_is_set(self):
+        cookie = self.client.cookies["voting_projects_voter"]
+        self.assertRegex(cookie.value, r"^[0-9a-f]{32}$")
+        self.assertTrue(cookie["httponly"])
+        self.assertEqual(cookie["samesite"], "Lax")
+
+    def test_guest_can_vote_once(self):
+        response = self.vote_json(self.sinema)
+        self.assertEqual(response.status_code, 200)
+        vote = Vote.objects.get()
+        self.assertIsNone(vote.user)
+        self.assertEqual(vote.voter_token, self.client.cookies["voting_projects_voter"].value)
+
+        response = self.vote_json(self.restoran)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json(), {"ok": False, "error": "Bu ankete zaten oy verdin."})
+        self.assertEqual(Vote.objects.count(), 1)
+
+    def test_guest_without_cookie_rejected(self):
+        fresh = self.client_class()
+        response = self.vote_json(self.sinema, client=fresh)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Vote.objects.exists())
+
+    def test_member_can_vote_once_across_browsers(self):
+        self.client.force_login(self.member)
+        self.assertEqual(self.vote_json(self.sinema).status_code, 200)
+        self.assertEqual(Vote.objects.get().user, self.member)
+
+        other_browser = self.client_class()
+        other_browser.get("/")
+        other_browser.force_login(self.member)
+        self.assertEqual(self.vote_json(self.restoran, client=other_browser).status_code, 409)
+        self.assertEqual(Vote.objects.count(), 1)
+
+    def test_guest_then_login_same_browser_cannot_vote_again(self):
+        self.assertEqual(self.vote_json(self.sinema).status_code, 200)
+        self.client.force_login(self.member)
+        self.assertEqual(self.vote_json(self.restoran).status_code, 409)
+
+    def test_member_then_logout_same_browser_cannot_vote_again(self):
+        self.client.force_login(self.member)
+        self.assertEqual(self.vote_json(self.sinema).status_code, 200)
+        self.client.post(reverse("logout"))
+        self.assertEqual(self.vote_json(self.restoran).status_code, 409)
+
+    def test_option_from_other_poll_rejected(self):
+        other = make_poll(self.owner, question="Başka bir anket")
+        response = self.vote_json(other.options.first())
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["ok"])
+        response = self.client.post(self.url, {"option_id": "abc"}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Vote.objects.exists())
+
+    def test_inactive_poll_rejected(self):
+        Poll.objects.filter(pk=self.poll.pk).update(is_active=False)
+        self.assertEqual(self.vote_json(self.sinema).status_code, 403)
+
+    def test_vote_requires_post(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_json_response_format_and_percentages(self):
+        for i, option in enumerate([self.restoran, self.restoran]):
+            Vote.objects.create(poll=self.poll, option=option, voter_token=f"other{i}")
+        data = self.vote_json(self.sinema).json()
+        self.assertEqual(
+            data,
+            {
+                "ok": True,
+                "voted_option_id": self.sinema.pk,
+                "total_votes": 3,
+                "options": [
+                    {"id": self.sinema.pk, "text": "Sinema", "votes": 1, "percent": 33.3},
+                    {"id": self.restoran.pk, "text": "Restoran", "votes": 2, "percent": 66.7},
+                    {"id": self.evde.pk, "text": "Evde kal", "votes": 0, "percent": 0.0},
+                ],
+            },
+        )
+
+    def test_form_post_redirects_to_detail_with_message(self):
+        response = self.client.post(self.url, {"option_id": self.sinema.pk}, follow=True)
+        self.assertRedirects(response, self.poll.get_absolute_url())
+        self.assertContains(response, "Oyun kaydedildi")
+        self.assertContains(response, "Senin seçimin")
+
+    def test_results_hidden_before_vote_and_shown_after(self):
+        Vote.objects.create(poll=self.poll, option=self.restoran, voter_token="other")
+        detail = self.poll.get_absolute_url()
+        response = self.client.get(detail)
+        self.assertContains(response, 'class="vote-form"')
+        self.assertNotContains(response, "option-stats")
+
+        self.vote_json(self.sinema)
+        response = self.client.get(detail)
+        self.assertNotContains(response, 'class="vote-form"')
+        self.assertContains(response, "%50,0 · 1 oy", count=2)
+
+    def test_owner_always_sees_results_and_can_vote(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(self.poll.get_absolute_url())
+        self.assertContains(response, "option-stats")
+        self.assertContains(response, 'class="vote-form"')
+        self.assertEqual(self.vote_json(self.sinema).status_code, 200)
+
+    def test_feed_marks_voted_polls(self):
+        other = make_poll(self.owner, question="Oy verilmemiş anket")
+        self.vote_json(self.sinema)
+        polls = {p.pk: p for p in self.client.get("/").context["page"]}
+        self.assertEqual(polls[self.poll.pk].voted_option_id, self.sinema.pk)
+        self.assertFalse(polls[self.poll.pk].can_vote)
+        self.assertTrue(polls[other.pk].can_vote)
+        self.assertFalse(polls[other.pk].show_results)

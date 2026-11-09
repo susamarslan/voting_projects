@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% load poll_extras %}
+{% load static poll_extras %}
 
 {% block title %}{{ poll.question }} · voting_projects{% endblock %}
 
 {% block content %}
-  <article class="poll-card poll-detail">
+  <article class="poll-card poll-detail" data-poll-id="{{ poll.pk }}">
     <p class="poll-meta">
       <span class="poll-author">@{{ poll.author.username }}</span>
       · <time datetime="{{ poll.created_at|date:'c' }}" title="{{ poll.created_at|date:'j F Y H:i' }}">{{ poll.created_at|relative_time }}</time>
@@ -12,11 +12,11 @@
     <h1 class="poll-question">{{ poll.question }}</h1>
     {% if poll.description %}<p class="poll-description">{{ poll.description|linebreaksbr }}</p>{% endif %}
     {% if not poll.is_active %}<p class="poll-closed">Bu anket kapatıldı.</p>{% endif %}
-    <ul class="poll-options">
-      {% for option in poll.options.all %}
-        <li class="poll-option" data-index="{{ forloop.counter }}">{{ option.text }}</li>
-      {% endfor %}
-    </ul>
-    <p class="poll-total">{{ poll.total_votes }} oy</p>
+    {% include "polls/_poll_options.html" %}
+    <p class="poll-total"><span class="total-count">{{ poll.total_votes }}</span> oy</p>
   </article>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vote.js' %}" defer></script>
 {% endblock %}

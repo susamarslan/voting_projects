@@ -1,0 +1,67 @@
+/* Faz 3: sonuç çubukları için yalnızca işlevsel temel stiller.
+   Asıl tasarım (renk paleti, tipografi, kartlar) Faz 4'te bu dosyaya eklenecek. */
+
+.poll-options {
+  list-style: none;
+  padding: 0;
+}
+
+.poll-option {
+  margin: 0.4rem 0;
+}
+
+.option-button,
+.option-result {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.option-button {
+  cursor: pointer;
+}
+
+.option-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #e9e0fb;
+  transition: width 600ms ease-out;
+  z-index: 0;
+}
+
+.option-text,
+.option-check,
+.option-stats {
+  position: relative;
+  z-index: 1;
+}
+
+.option-stats {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.is-choice .option-result {
+  border-width: 2px;
+  font-weight: 600;
+}
+
+.vote-error {
+  color: #c0264b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .option-bar {
+    transition: none;
+  }
+}

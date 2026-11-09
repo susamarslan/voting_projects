@@ -1,0 +1,30 @@
+{% comment %}
+Bir anketin seçenekleri: oy verilebiliyorsa her biri küçük bir POST formu (JS olmadan da çalışır),
+değilse sonuç satırı. Sayılar yalnızca show_results ise basılır (oy öncesi kaynakta görünmesin).
+static/js/vote.js oy sonrası aynı yapıyı (.option-result) üretir; burayı değiştirirsen orayı da güncelle.
+{% endcomment %}
+<ul class="poll-options{% if poll.show_results %} show-results{% endif %}">
+  {% for option in poll.options.all %}
+    <li class="poll-option{% if option.is_choice %} is-choice{% endif %}" data-index="{{ forloop.counter }}">
+      {% if poll.can_vote %}
+        <form method="post" action="{% url 'polls:vote' poll.pk %}" class="vote-form">
+          {% csrf_token %}
+          <input type="hidden" name="option_id" value="{{ option.pk }}">
+          <button type="submit" class="option-button" data-option-id="{{ option.pk }}">
+            {% if poll.show_results %}<span class="option-bar" style="width: {{ option.percent|stringformat:'.1f' }}%"></span>{% endif %}
+            <span class="option-text">{{ option.text }}</span>
+            {% if poll.show_results %}<span class="option-stats">%{{ option.percent|floatformat:1 }} · {{ option.vote_count }} oy</span>{% endif %}
+          </button>
+        </form>
+      {% else %}
+        <div class="option-result">
+          {% if poll.show_results %}<span class="option-bar" style="width: {{ option.percent|stringformat:'.1f' }}%"></span>{% endif %}
+          <span class="option-text">{{ option.text }}</span>
+          {% if option.is_choice %}<span class="option-check" aria-label="Senin seçimin">✓</span>{% endif %}
+          {% if poll.show_results %}<span class="option-stats">%{{ option.percent|floatformat:1 }} · {{ option.vote_count }} oy</span>{% endif %}
+        </div>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+<p class="vote-error" role="alert" hidden></p>

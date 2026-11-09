@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
   {% for poll in page %}
@@ -10,4 +11,8 @@
     </div>
   {% endfor %}
   {% include "partials/pagination.html" %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vote.js' %}" defer></script>
 {% endblock %}
