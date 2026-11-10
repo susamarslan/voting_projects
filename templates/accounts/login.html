@@ -7,6 +7,7 @@
     <h1>Tekrar hoş geldin! 💜</h1>
     <form method="post" novalidate>
       {% csrf_token %}
+      {% if limit_error %}<div class="form-errors" role="alert"><p>{{ limit_error }}</p></div>{% endif %}
       {% include "partials/form_fields.html" %}
       {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
       <button type="submit">Giriş yap</button>

@@ -120,6 +120,7 @@ voting_projects/
 | `created_at` | DateTimeField | `auto_now_add` |
 | `is_active` | BooleanField | Varsayılan `True`; sahibi anketi elle kapatınca `False` |
 | `ends_at` | DateTimeField, null=True | Opsiyonel bitiş zamanı (Faz 6); boşsa süresiz |
+| `members_only` | BooleanField | Varsayılan `False`; `True` ise yalnızca giriş yapmış üyeler oy verebilir (Faz 7) |
 
 Anket **açık** sayılır: `is_active=True` **ve** (`ends_at` boş **veya** gelecekte). Açık olmayan anket oylamaya kapalıdır ve herkese sonuçları gösterir.
 
@@ -161,7 +162,7 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 - **Anonim kullanıcı:** bir middleware, ilk ziyarette `voting_projects_voter` adında rastgele bir token (UUID4 hex) içeren çerez oluşturur (HttpOnly, SameSite=Lax, 1 yıl, prod'da Secure). Oy bu token ile kaydedilir.
 - ~~Prototipte oy değiştirilemez ve geri alınamaz.~~ **Faz 6 kararı (2026-11-10):** Anket açıkken oy **değiştirilebilir** (başka seçeneğe dokununca oy taşınır) ve **geri alınabilir** ("Oyumu geri al"; sonra kişi hiç oy vermemiş gibi görür). Aynı kurallar misafir (çerez) ve üye için geçerlidir. Anket kapandıktan sonra oy değiştirilemez/geri alınamaz.
 - Anket sahibi kendi anketine oy verebilir.
-- Bilinen sınırlama (prototip için kabul edilir): anonim kullanıcı çerezleri silerse tekrar oy verebilir. Bu, ileride IP/hız sınırlaması ile iyileştirilecek.
+- Bilinen sınırlama: anonim kullanıcı çerezleri silerse tekrar oy verebilir. **Faz 7:** anket sahibi "Yalnızca üyeler oy verebilsin" seçeneğini açarsa misafirler o ankete oy veremez (seçenekleri görür, "Oy vermek için giriş yap" bağlantısı çıkar). Ayrıca oy isteklerine IP başına hız sınırı uygulanır.
 
 ### Sonuçların görünürlüğü
 - Kullanıcı oy vermeden önce yalnızca seçenekleri görür (sonuçlar etkilemesin diye).
@@ -180,6 +181,23 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 - Akış sıralaması `?sirala=`: boş = **En yeni**, `populer` = **En çok oy alan** (toplam oy, eşitlikte yeni olan önce), `oy-vermediklerim` = yalnızca açık ve kişinin henüz oy vermediği anketler (en yeni önce). Sayfalama bu parametreyi korur.
 - Kartta açık ve süreli anketlerde kalan süre ("⏳ 2 gün kaldı"), kapanmışlarda "Kapandı" etiketi.
 - Kartta: `@kullaniciadi`, "3 saat önce" gibi göreli zaman, soru, seçenekler, toplam oy sayısı.
+
+---
+
+### Hız sınırları (Faz 7)
+
+Yeni paket eklenmez. Sayaçlar veritabanında tutulur (`polls.RateLimit`, sabit zaman pencereli sayaç), çünkü Vercel'de her istek farklı bir sunucusuz örneğe düşebilir ve bellek içi önbellek paylaşılmaz. IP adresi tabloya ham değil, `SECRET_KEY` ile HMAC'lenmiş hâliyle yazılır.
+
+| Ne | Anahtar | Sınır | Aşılınca |
+|---|---|---|---|
+| Oy verme / değiştirme / geri alma | IP | 10 dakikada 60 istek | `429`, "Çok hızlı gidiyorsun..." |
+| Başarısız giriş denemesi | IP | 15 dakikada 10 deneme | Giriş formu `429` ile hata gösterir (doğru parola da denenmez) |
+| Kayıt (oluşan hesap) | IP | Saatte 5 hesap | Kayıt formu `429` ile hata gösterir |
+| Anket oluşturma | Üye | Saatte 10 anket | Oluşturma formu `429` ile hata gösterir |
+
+- İstemci IP'si: Vercel'de (`VERCEL` ortam değişkeni varken) Vercel'in kendisinin yazdığı `X-Real-IP` / `X-Forwarded-For` başlığından, aksi hâlde `REMOTE_ADDR`'dan okunur. Başka bir ortamda proxy arkasında çalışılırsa `TRUST_PROXY_HEADERS=True` verilir.
+- Süresi geçmiş sayaç satırları ara sıra (isteklerin ~%2'sinde) silinir.
+- Admin girişi (`/admin/`) bu sınırların dışındadır.
 
 ---
 
@@ -512,11 +530,26 @@ Yeni tablo yok (yalnızca `polls_poll.ends_at` sütunu), bu yüzden yeni RLS mig
 
 ---
 
+### FAZ 7 — Güvenlik ve Dayanıklılık
+
+> **Karar (2026-11-10):** 5. bölümdeki "Hız sınırları" tablosu ve üyelere özel anket seçeneği uygulanır.
+
+1. `polls.RateLimit` modeli + `polls/ratelimit.py` yardımcıları; tablo için RLS'i aynı migration'da aç.
+2. Oy ve oy geri alma, giriş, kayıt, anket oluşturma view'larına sınırları uygula; JSON isteklerine `{"ok": false, "error": ...}` + `429`.
+3. `Poll.members_only` alanı, oluşturma formunda onay kutusu, kartta "👤 Üyelere özel" etiketi; misafirin oyu `403` ile reddedilir.
+
+**Kontrol listesi:**
+- [ ] Üyelere özel ankette misafir seçeneklere tıklayamıyor, "giriş yap" bağlantısı çıkıyor
+- [ ] Çok sayıda hatalı giriş denemesinden sonra giriş formu bekleme mesajı veriyor
+- [ ] Supabase'de `polls_ratelimit` tablosunda RLS açık
+
+---
+
 ## 10. Sonraki Adımlar (Prototip Sonrası Fikirler)
 
 Prototip yayına girdikten sonra öncelik sırasına göre değerlendirilebilir:
 
-1. **Kötüye kullanım önleme:** oy ve anket oluşturma için hız sınırı, IP hash'i ile ek anonim oy kontrolü, basit küfür filtresi.
+1. **Kötüye kullanım önleme:** hız sınırları ve üyelere özel anket Faz 7'de yapıldı; IP hash'i ile anket başına anonim oy kontrolü ve basit küfür filtresi kaldı.
 2. ~~**Anket süresi**~~ (Faz 6'da yapıldı).
 3. **Kategoriler / etiketler:** Yemek, Eğlence, Alışveriş, Moda... ve akışta filtre.
 4. ~~**Sıralama**~~ (Faz 6'da toplam oya göre yapıldı; "son 24 saatte popüler" ileride eklenebilir).

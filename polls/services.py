@@ -79,14 +79,18 @@ def decorate_polls(request, polls):
     şablona basılır; böylece oy vermeden önce sayfa kaynağında görünmez.
 
     can_vote: anket açık olduğu sürece True; oy vermiş kişi için de (oyunu
-    başka seçeneğe taşıyabilir, bkz. plan 5. bölüm / Faz 6).
+    başka seçeneğe taşıyabilir, bkz. plan 5. bölüm / Faz 6). Üyelere özel
+    ankette misafir için False (Faz 7).
     """
     polls = list(polls)
     voted = voted_option_ids(request, polls)
     for poll in polls:
         poll.voted_option_id = voted.get(poll.pk)
         is_open = poll.is_open
-        poll.can_vote = is_open
+        guest_blocked = poll.members_only and not request.user.is_authenticated
+        poll.can_vote = is_open and not guest_blocked
+        # Üyelere özel açık ankette misafire "giriş yap" bağlantısı gösterilir.
+        poll.needs_login = is_open and guest_blocked
         poll.show_results = (
             poll.voted_option_id is not None or is_owner(request, poll) or not is_open
         )

@@ -1,12 +1,15 @@
+import time
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Option, Poll, Vote
+from . import ratelimit
+from .models import Option, Poll, RateLimit, Vote
 from .templatetags.poll_extras import relative_time, time_left
 
 User = get_user_model()
@@ -593,6 +596,103 @@ class OpenGraphTests(TestCase):
         self.assertContains(
             response, '<meta property="og:site_name" content="Kararsızım">', html=False
         )
+
+
+class MembersOnlyTests(TestCase):
+    def setUp(self):
+        self.ali = User.objects.create_user("ali@example.com", "ali", PASSWORD)
+        self.poll = make_poll(self.ali, members_only=True)
+        self.option = self.poll.options.first()
+        self.url = reverse("polls:vote", args=[self.poll.pk])
+        self.client.get("/")
+
+    def test_guest_cannot_vote_and_sees_login_link(self):
+        response = self.client.post(self.url, {"option_id": self.option.pk}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("yalnızca üyeler", response.json()["error"])
+        self.assertFalse(Vote.objects.exists())
+
+        response = self.client.get(self.poll.get_absolute_url())
+        self.assertNotContains(response, 'class="vote-form"')
+        self.assertNotContains(response, "option-stats")
+        self.assertContains(response, "Oy vermek için giriş yap")
+        self.assertContains(response, f"/giris/?next=/anket/{self.poll.pk}/")
+        self.assertContains(response, "Üyelere özel")
+
+    def test_member_can_vote(self):
+        member = User.objects.create_user("ayse@example.com", "ayse", PASSWORD)
+        self.client.force_login(member)
+        response = self.client.post(self.url, {"option_id": self.option.pk}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Vote.objects.get().user, member)
+
+    def test_create_members_only_poll(self):
+        self.client.force_login(self.ali)
+        self.client.post(
+            reverse("polls:create"),
+            {"question": "Üyelere sorum var", "options": ["Evet", "Hayır"], "members_only": "on"},
+        )
+        self.assertTrue(Poll.objects.get(question="Üyelere sorum var").members_only)
+
+
+@override_settings(TRUST_PROXY_HEADERS=False)
+class RateLimitTests(TestCase):
+    def setUp(self):
+        self.ali = User.objects.create_user("ali@example.com", "ali", PASSWORD)
+        self.poll = make_poll(self.ali)
+        self.sinema, self.restoran = self.poll.options.all()
+        self.client.get("/")
+
+    def test_vote_limited_per_ip(self):
+        limit, _ = ratelimit.VOTE
+        url = reverse("polls:vote", args=[self.poll.pk])
+        options = [self.sinema, self.restoran]
+        for i in range(limit):
+            response = self.client.post(url, {"option_id": options[i % 2].pk}, HTTP_ACCEPT="application/json")
+            self.assertEqual(response.status_code, 200)
+        response = self.client.post(url, {"option_id": self.sinema.pk}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json(), {"ok": False, "error": ratelimit.LIMITED_MESSAGE})
+        # Başka bir IP etkilenmez.
+        other = self.client_class(REMOTE_ADDR="10.0.0.9")
+        other.get("/")
+        response = other.post(url, {"option_id": self.sinema.pk}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 200)
+
+    def test_forwarded_header_ignored_unless_trusted(self):
+        factory = RequestFactory()
+        request = factory.get("/", HTTP_X_FORWARDED_FOR="1.2.3.4", REMOTE_ADDR="5.6.7.8")
+        self.assertEqual(ratelimit.client_ip(request), "5.6.7.8")
+        with self.settings(TRUST_PROXY_HEADERS=True):
+            self.assertEqual(ratelimit.client_ip(request), "1.2.3.4")
+            request = factory.get("/", HTTP_X_REAL_IP="9.9.9.9", HTTP_X_FORWARDED_FOR="1.2.3.4")
+            self.assertEqual(ratelimit.client_ip(request), "9.9.9.9")
+
+    def test_raw_ip_not_stored(self):
+        ratelimit.record("vote", "127.0.0.1", 600)
+        self.assertNotIn("127.0.0.1", RateLimit.objects.get().key)
+
+    def test_window_expiry_resets_count(self):
+        rule = (2, 60)
+        self.assertFalse(ratelimit.hit("test", "x", rule))
+        self.assertFalse(ratelimit.hit("test", "x", rule))
+        self.assertTrue(ratelimit.hit("test", "x", rule))
+        with patch("polls.ratelimit.time.time", return_value=time.time() + 120):
+            self.assertFalse(ratelimit.hit("test", "x", rule))
+
+    def test_create_poll_limited_per_user(self):
+        self.client.force_login(self.ali)
+        limit, _ = ratelimit.CREATE_POLL
+        for i in range(limit):
+            self.client.post(
+                reverse("polls:create"), {"question": f"Soru numarası {i}", "options": ["A", "B"]}
+            )
+        response = self.client.post(
+            reverse("polls:create"), {"question": "Bir soru daha", "options": ["A", "B"]}
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "çok fazla anket", status_code=429)
+        self.assertEqual(Poll.objects.filter(author=self.ali).count(), limit + 1)  # +1: setUp anketi
 
 
 class ErrorPageTests(TestCase):

@@ -30,6 +30,12 @@ static/js/vote.js aynı yapıyı (renderOptions) üretir; burayı değiştirirse
     </li>
   {% endfor %}
 </ul>
+{% if poll.needs_login %}
+  <p class="vote-actions">
+    <span class="vote-hint">Bu ankette yalnızca üyeler oy verebilir.</span>
+    <a href="{% url 'login' %}?next={{ poll.get_absolute_url|urlencode }}" class="link-button">Oy vermek için giriş yap</a>
+  </p>
+{% endif %}
 {% if poll.can_vote and poll.voted_option_id %}
   <div class="vote-actions">
     <span class="vote-hint">Fikrin mi değişti? Başka seçeneğe dokun.</span>

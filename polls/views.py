@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from . import services
+from . import ratelimit, services
 from .forms import PollForm
 from .models import Option, Poll, Vote
 
@@ -90,8 +90,16 @@ def vote(request, pk):
     """Oy verir; kişinin oyu zaten varsa seçilen seçeneğe taşır (plan 5. bölüm, Faz 6)."""
     poll = get_object_or_404(Poll, pk=pk)
 
+    if ratelimit.hit("vote", ratelimit.client_ip(request), ratelimit.VOTE):
+        return fail_response(request, poll, ratelimit.LIMITED_MESSAGE, 429)
+
     if not poll.is_open:
         return fail_response(request, poll, "Bu anket oylamaya kapalı.", 403)
+
+    if poll.members_only and not request.user.is_authenticated:
+        return fail_response(
+            request, poll, "Bu ankette yalnızca üyeler oy verebilir. Giriş yapıp tekrar dene.", 403
+        )
 
     try:
         option = Option.objects.get(pk=int(request.POST.get("option_id", "")), poll=poll)
@@ -139,6 +147,8 @@ def vote(request, pk):
 @require_POST
 def vote_withdraw(request, pk):
     poll = get_object_or_404(Poll, pk=pk)
+    if ratelimit.hit("vote", ratelimit.client_ip(request), ratelimit.VOTE):
+        return fail_response(request, poll, ratelimit.LIMITED_MESSAGE, 429)
     if not poll.is_open:
         return fail_response(request, poll, "Kapanmış ankette oy geri alınamaz.", 403)
 
@@ -162,8 +172,12 @@ def vote_withdraw(request, pk):
 def poll_create(request):
     if request.method == "POST":
         form = PollForm(request.POST, options=request.POST.getlist("options"))
+        if ratelimit.is_limited("create_poll", request.user.pk, ratelimit.CREATE_POLL):
+            form.add_error(None, "Kısa sürede çok fazla anket açtın. Biraz sonra tekrar dene.")
+            return render(request, "polls/create.html", {"form": form}, status=429)
         if form.is_valid():
             poll = form.save(author=request.user)
+            ratelimit.record("create_poll", request.user.pk, ratelimit.CREATE_POLL[1])
             messages.success(request, "Anketin yayında! 🚀")
             return redirect(poll)
     else:

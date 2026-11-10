@@ -31,6 +31,11 @@ class Poll(models.Model):
     created_at = models.DateTimeField("oluşturulma", auto_now_add=True)
     is_active = models.BooleanField("aktif", default=True)
     ends_at = models.DateTimeField("bitiş", null=True, blank=True)
+    members_only = models.BooleanField(
+        "yalnızca üyeler",
+        default=False,
+        help_text="Açıksa misafirler oy veremez.",
+    )
 
     objects = PollQuerySet.as_manager()
 
@@ -115,3 +120,18 @@ class Vote(models.Model):
 
     def __str__(self):
         return f"{self.poll_id} → {self.option_id}"
+
+
+class RateLimit(models.Model):
+    """Hız sınırı sayacı (bkz. polls/ratelimit.py). Anahtar kimliğin HMAC'ini içerir, ham IP değil."""
+
+    key = models.CharField("anahtar", max_length=128, unique=True)
+    count = models.PositiveIntegerField("sayı", default=0)
+    expires_at = models.DateTimeField("bitiş", db_index=True)
+
+    class Meta:
+        verbose_name = "hız sınırı sayacı"
+        verbose_name_plural = "hız sınırı sayaçları"
+
+    def __str__(self):
+        return f"{self.key} = {self.count}"

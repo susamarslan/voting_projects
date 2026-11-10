@@ -1,6 +1,10 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+
+from polls import ratelimit
 
 User = get_user_model()
 
@@ -111,3 +115,54 @@ class LoginLogoutTests(TestCase):
         response = self.client.get("/")
         self.assertContains(response, "@ali")
         self.assertNotContains(response, "ali@example.com")
+
+
+class AuthRateLimitTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("ali@example.com", "ali", PASSWORD)
+
+    def test_login_blocked_after_failed_attempts_even_with_right_password(self):
+        limit, _ = ratelimit.LOGIN_FAILURE
+        for _ in range(limit):
+            response = self.client.post(
+                reverse("login"), {"username": "ali@example.com", "password": "yanlis-parola"}
+            )
+            self.assertEqual(response.status_code, 200)
+        with patch("accounts.views.LoginView.form_valid") as form_valid:
+            response = self.client.post(
+                reverse("login"), {"username": "ali@example.com", "password": PASSWORD}
+            )
+            form_valid.assert_not_called()
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Çok fazla hatalı giriş denemesi", status_code=429)
+        self.assertContains(response, 'value="ali@example.com"', status_code=429)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_successful_logins_are_not_counted(self):
+        for _ in range(ratelimit.LOGIN_FAILURE[0] + 2):
+            response = self.client.post(
+                reverse("login"), {"username": "ali@example.com", "password": PASSWORD}
+            )
+            self.assertEqual(response.status_code, 302)
+            self.client.logout()
+
+    def test_register_limited_per_ip(self):
+        limit, _ = ratelimit.REGISTER
+        for i in range(limit):
+            response = self.client.post(
+                reverse("register"), register_data(email=f"k{i}@example.com", username=f"kisi{i}")
+            )
+            self.assertEqual(response.status_code, 302)
+            self.client.logout()
+        response = self.client.post(
+            reverse("register"), register_data(email="son@example.com", username="sonkisi")
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "çok fazla hesap", status_code=429)
+        self.assertFalse(User.objects.filter(username="sonkisi").exists())
+
+    def test_failed_register_attempts_not_counted(self):
+        for _ in range(ratelimit.REGISTER[0] + 1):
+            self.client.post(reverse("register"), register_data(username="x"))
+        response = self.client.post(reverse("register"), register_data(email="yeni@example.com", username="yeni"))
+        self.assertEqual(response.status_code, 302)

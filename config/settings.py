@@ -32,6 +32,12 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
+# Hız sınırı için istemci IP'si: Vercel X-Forwarded-For / X-Real-IP başlıklarını kendisi yazar
+# (dışarıdan gelen değeri ezer). Başka bir proxy arkasında TRUST_PROXY_HEADERS=True verilmeli.
+TRUST_PROXY_HEADERS = bool(os.getenv("VERCEL")) or os.getenv(
+    "TRUST_PROXY_HEADERS", "False"
+).lower() in ("1", "true", "yes")
+
 # Vercel'in her deploy'a verdiği alan adlarını (önizleme + production) otomatik ekle.
 for _var in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
     _host = os.getenv(_var, "").strip()

@@ -12,7 +12,7 @@ Yığın: Django 5.2 + Python 3.12, Supabase (yalnızca Postgres olarak), Django
 
 ## Çalışma kuralları
 
-- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Faz 0–6'nın kodu tamamlandı; deploy adımları README.md'de (Vercel'e yayın henüz yapılmadı).
+- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Faz 0–7'nin kodu tamamlandı; deploy adımları README.md'de (Vercel'e yayın henüz yapılmadı).
 - Git commit/push işlerini kullanıcı yapar; commit atma.
 - Frontend framework veya build adımı ekleme (React, Vue, Tailwind, Bootstrap, npm yok).
 - Yeni paket eklemeden önce sor.
@@ -50,6 +50,8 @@ Linter/formatter yapılandırılmadı.
   - Oy kuralları ve sonuç hesapları `polls/services.py`'de. `decorate_polls()` her ankete `can_vote` (= anket açık), `show_results`, `voted_option_id` ve seçeneklere `percent`/`is_choice` ekler; listeleyen her view bunu çağırmalı. Oy geri alındığında JSON'daki seçenekler, kişi sonuçları görmüyorsa sayı içermez.
   - Sonuç sayıları yalnızca `show_results` iken HTML'e basılır (oy öncesi sayfa kaynağında görünmemeli). Anket sahibi sonuçları her zaman görür ve oy da verebilir.
   - Seçenek/sonuç markup'ı (ve "Oyumu geri al" satırı) `templates/polls/_poll_options.html` ile `static/js/vote.js`'teki `renderOptions`/`renderVoteActions` arasında ikizdir; biri değişirse diğeri de güncellenmeli.
+- **Hız sınırları (`polls/ratelimit.py`, Faz 7):** Yeni paket yok; sayaçlar `polls.RateLimit` tablosunda (Vercel'de bellek içi önbellek örnekler arasında paylaşılmaz). Anahtarda ham IP değil, `SECRET_KEY` ile HMAC'lenmiş hâli durur. Sınırlar modülün başındaki sabitlerde (`VOTE`, `LOGIN_FAILURE`, `REGISTER`, `CREATE_POLL`); kayıt ve anket oluşturmada yalnızca başarılı işlemler, girişte yalnızca başarısız denemeler sayılır. `client_ip()` proxy başlıklarına yalnızca `settings.TRUST_PROXY_HEADERS` iken (Vercel'de `VERCEL` değişkeni varken otomatik) güvenir. Giriş sınırdayken bağlı form kullanılmaz, çünkü `form.errors` `authenticate()`'i çalıştırır.
+- **Üyelere özel anket:** `Poll.members_only`; misafir oyu `403`. `decorate_polls()` misafir için `can_vote=False` ve `needs_login=True` verir.
 - **Akış sıralaması:** `?sirala=` (`populer`, `oy-vermediklerim`; boş = en yeni), `views.FEED_SORTS`. Sayfalama parçası `sort` bağlamını linklere ekler.
 - **Paylaşım önizlemesi:** `base.html`'de `meta`/`og_title`/`og_description`/`meta_description` blokları; detay sayfası `polls/_share_text.html` ile seçenekleri koyar (sonuç sayıları asla).
 - **Anket sorguları:** Kart gösteren her liste `polls/views.py`'deki `poll_queryset()`'i kullanır (`select_related` + `prefetch_related("options")` + `total_votes` annotate). Burada `order_by` açıkça verilir, çünkü Django GROUP BY içeren sorgularda `Meta.ordering`'i uygulamaz. Akışın sabit sorgu sayısı `assertNumQueries` testiyle korunur.

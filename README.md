@@ -36,6 +36,7 @@ Testler:
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Virgülle ayrılmış |
 | `CSRF_TRUSTED_ORIGINS` | `http://localhost:8000` | Şema dahil (`https://...`) |
 | `DATABASE_URL` | boş | Boşsa SQLite (`db.sqlite3`), doluysa PostgreSQL |
+| `TRUST_PROXY_HEADERS` | boş | Hız sınırı için IP'yi `X-Forwarded-For`'dan oku. Vercel'de otomatik açıktır; yalnızca başka bir proxy arkasında `True` ver |
 
 `.env` ve `.env.local` asla commit edilmez.
 
@@ -87,7 +88,7 @@ Migration'lar Vercel build'inde **çalıştırılmaz**; yeni bir migration eklen
 
 Supabase, `public` şemasındaki tabloları kendi REST API'si üzerinden dışarı açar. `polls/migrations/0002_enable_rls.py` migration'ı tüm Django tablolarında RLS'i açar. Hiç politika eklenmediği için bu API'den (anon/authenticated anahtarlarla) hiçbir satır okunamaz. Django tablo sahibi olan `postgres` rolüyle bağlandığı için etkilenmez. Migration SQLite'ta hiçbir şey yapmaz.
 
-Kapsanan tablolar: `accounts_user`, `accounts_user_groups`, `accounts_user_user_permissions`, `auth_group`, `auth_group_permissions`, `auth_permission`, `django_admin_log`, `django_content_type`, `django_session`, `django_migrations`, `polls_poll`, `polls_option`, `polls_vote`.
+Kapsanan tablolar: `accounts_user`, `accounts_user_groups`, `accounts_user_user_permissions`, `auth_group`, `auth_group_permissions`, `auth_permission`, `django_admin_log`, `django_content_type`, `django_session`, `django_migrations`, `polls_poll`, `polls_option`, `polls_vote`. Hız sınırı sayaçlarının tablosu `polls_ratelimit` için RLS, `0004_members_only_ratelimit` migration'ında açılır.
 
 **Yeni bir model eklenirse** onun tablosu için de RLS açan bir migration yazılmalı. Kontrol için Supabase → Table Editor'da her tabloda "RLS enabled" görünmeli.
 

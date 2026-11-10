@@ -49,9 +49,15 @@ class PollForm(forms.ModelForm):
         help_text="Süre dolunca anket oylamaya kapanır ve sonuçları herkes görür.",
     )
 
+    members_only = forms.BooleanField(
+        label="Yalnızca üyeler oy verebilsin",
+        required=False,
+        help_text="Misafirlerin çerez silerek tekrar oy vermesini engeller.",
+    )
+
     class Meta:
         model = Poll
-        fields = ("question", "description")
+        fields = ("question", "description", "members_only")
 
     def __init__(self, *args, options=None, **kwargs):
         super().__init__(*args, **kwargs)
