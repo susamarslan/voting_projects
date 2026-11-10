@@ -2,20 +2,27 @@
 {% load static poll_extras %}
 
 {% block title %}{{ poll.question }} · Kararsızım{% endblock %}
+{% block og_title %}{{ poll.question }}{% endblock %}
+{% block meta_description %}{% include "polls/_share_text.html" %}{% endblock %}
+{% block og_description %}{% include "polls/_share_text.html" %}{% endblock %}
 
 {% block content %}
   <article class="poll-card poll-detail" data-poll-id="{{ poll.pk }}">
     <p class="poll-meta">
       <span class="poll-author">@{{ poll.author.username }}</span>
       · <time datetime="{{ poll.created_at|date:'c' }}" title="{{ poll.created_at|date:'j F Y H:i' }}">{{ poll.created_at|relative_time }}</time>
+      {% include "polls/_poll_status.html" %}
     </p>
     <h1 class="poll-question">{{ poll.question }}</h1>
     {% if poll.description %}<p class="poll-description">{{ poll.description|linebreaksbr }}</p>{% endif %}
-    {% if not poll.is_active %}<p class="poll-closed">Bu anket kapatıldı</p>{% endif %}
+    {% if not poll.is_open %}<p class="poll-closed">{% if poll.is_expired %}Süresi doldu, oylama bitti{% else %}Bu anket kapatıldı{% endif %}</p>{% endif %}
     {% include "polls/_poll_options.html" %}
     <div class="poll-footer">
       <p class="poll-total"><span class="total-count">{{ poll.total_votes }}</span> oy</p>
-      <button type="button" class="button-secondary" data-copy-url="{{ request.build_absolute_uri }}">🔗 Linki kopyala</button>
+      <div class="owner-actions">
+        {% if user.is_authenticated and poll.author_id == user.pk %}{% include "polls/_owner_actions.html" %}{% endif %}
+        <button type="button" class="button-secondary" data-copy-url="{{ request.build_absolute_uri }}">🔗 Linki kopyala</button>
+      </div>
     </div>
   </article>
 {% endblock %}

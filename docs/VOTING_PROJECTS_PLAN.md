@@ -118,7 +118,10 @@ voting_projects/
 | `question` | CharField(200) | Zorunlu, en az 5 karakter |
 | `description` | TextField(500) | Opsiyonel, kısa açıklama |
 | `created_at` | DateTimeField | `auto_now_add` |
-| `is_active` | BooleanField | Varsayılan `True` (ileride anket kapatma için) |
+| `is_active` | BooleanField | Varsayılan `True`; sahibi anketi elle kapatınca `False` |
+| `ends_at` | DateTimeField, null=True | Opsiyonel bitiş zamanı (Faz 6); boşsa süresiz |
+
+Anket **açık** sayılır: `is_active=True` **ve** (`ends_at` boş **veya** gelecekte). Açık olmayan anket oylamaya kapalıdır ve herkese sonuçları gösterir.
 
 Sıralama: `-created_at`.
 
@@ -156,7 +159,7 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 - **Herkes** (üye olsun olmasın) her ankete **bir kez** oy verebilir.
 - **Üye kullanıcı:** oy `user` ile kaydedilir.
 - **Anonim kullanıcı:** bir middleware, ilk ziyarette `voting_projects_voter` adında rastgele bir token (UUID4 hex) içeren çerez oluşturur (HttpOnly, SameSite=Lax, 1 yıl, prod'da Secure). Oy bu token ile kaydedilir.
-- Prototipte oy **değiştirilemez ve geri alınamaz.**
+- ~~Prototipte oy değiştirilemez ve geri alınamaz.~~ **Faz 6 kararı (2026-11-10):** Anket açıkken oy **değiştirilebilir** (başka seçeneğe dokununca oy taşınır) ve **geri alınabilir** ("Oyumu geri al"; sonra kişi hiç oy vermemiş gibi görür). Aynı kurallar misafir (çerez) ve üye için geçerlidir. Anket kapandıktan sonra oy değiştirilemez/geri alınamaz.
 - Anket sahibi kendi anketine oy verebilir.
 - Bilinen sınırlama (prototip için kabul edilir): anonim kullanıcı çerezleri silerse tekrar oy verebilir. Bu, ileride IP/hız sınırlaması ile iyileştirilecek.
 
@@ -164,14 +167,18 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 - Kullanıcı oy vermeden önce yalnızca seçenekleri görür (sonuçlar etkilemesin diye).
 - Oy verdikten sonra her seçeneğin **yüzdesi, oy sayısı ve toplam oy** görünür; kullanıcının seçtiği seçenek işaretlenir.
 - Anket sahibi sonuçları her zaman görür.
+- Kapanmış (elle veya süresi dolmuş) anketin sonuçlarını herkes görür.
 
 ### Anket oluşturma
 - Yalnızca giriş yapmış kullanıcılar. Giriş yapmamış biri "Anket oluştur"a tıklarsa giriş sayfasına yönlendirilir (`?next=` ile geri döner); giriş sayfasında kayıt ol bağlantısı belirgin olur.
 - Form: soru + opsiyonel açıklama + 2–5 seçenek. Doğrulama **hem JS'de hem sunucuda** yapılır.
-- Prototipte anket düzenleme yok. Sahibi kendi anketini **silebilir** (onay ile).
+- Opsiyonel süre: Süresiz / 1 saat / 1 gün / 3 gün / 1 hafta → `ends_at` hesaplanır.
+- Prototipte anket düzenleme yok. Sahibi kendi anketini **silebilir** (onay ile), **kapatabilir** ve süresi dolmamışsa **yeniden açabilir**.
 
 ### Görünürlük ve gizlilik
-- Takip/arkadaşlık sistemi yok. Tüm anketler tek ana akışta, en yeniden en eskiye.
+- Takip/arkadaşlık sistemi yok. Tüm anketler (kapanmışlar dahil) tek ana akışta.
+- Akış sıralaması `?sirala=`: boş = **En yeni**, `populer` = **En çok oy alan** (toplam oy, eşitlikte yeni olan önce), `oy-vermediklerim` = yalnızca açık ve kişinin henüz oy vermediği anketler (en yeni önce). Sayfalama bu parametreyi korur.
+- Kartta açık ve süreli anketlerde kalan süre ("⏳ 2 gün kaldı"), kapanmışlarda "Kapandı" etiketi.
 - Kartta: `@kullaniciadi`, "3 saat önce" gibi göreli zaman, soru, seçenekler, toplam oy sayısı.
 
 ---
@@ -182,7 +189,10 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 |---|---|---|---|
 | `/` | `feed` | Herkes | Tüm anketler, sayfa başına 20 (Django Paginator) |
 | `/anket/<id>/` | `poll_detail` | Herkes | Tek anket, oy verme, sonuçlar, paylaşım linki kopyalama |
-| `/anket/<id>/oy/` | `vote` | Herkes, **POST** | Oy kaydeder. `fetch` isteğine JSON, normal form isteğine redirect döner |
+| `/anket/<id>/oy/` | `vote` | Herkes, **POST** | Oy kaydeder veya mevcut oyu başka seçeneğe taşır. `fetch` isteğine JSON, normal form isteğine redirect döner |
+| `/anket/<id>/oy/geri-al/` | `vote_withdraw` | Herkes, **POST** | Oyu siler (Faz 6) |
+| `/anket/<id>/kapat/` | `poll_close` | Sadece sahibi, POST | Anketi kapatır (Faz 6) |
+| `/anket/<id>/ac/` | `poll_reopen` | Sadece sahibi, POST | Süresi dolmamış anketi yeniden açar (Faz 6) |
 | `/anket/yeni/` | `poll_create` | Üye | Anket oluşturma formu |
 | `/anket/<id>/sil/` | `poll_delete` | Sadece sahibi, POST | Anketi siler |
 | `/anketlerim/` | `my_polls` | Üye | Kullanıcının kendi anketleri |
@@ -195,7 +205,10 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
 ```json
 {
   "ok": true,
+  "message": "Oyun kaydedildi 🎉",
   "voted_option_id": 12,
+  "changed": false,
+  "show_results": true,
   "total_votes": 37,
   "options": [
     {"id": 11, "text": "Sinema", "votes": 15, "percent": 40.5},
@@ -203,7 +216,11 @@ Kural: Bir anketin **2–5** seçeneği olur; aynı ankette tekrar eden seçenek
   ]
 }
 ```
-Hatalar: zaten oy verilmişse `409`, geçersiz seçenekse `400`, anket pasifse `403`. JSON'da `{"ok": false, "error": "..."}`.
+`changed`: kişinin daha önce oyu varsa ve başka seçeneğe taşındıysa `true` (aynı seçeneğe tekrar basmak bir şey değiştirmez, `200` döner).
+
+Hatalar: geçersiz seçenekse `400`, çerez yoksa `400`, anket kapalıysa `403`. JSON'da `{"ok": false, "error": "..."}`. (Faz 6 öncesindeki "zaten oy verildi → `409`" kuralı kalktı; `409` artık yalnızca aynı anda gelen iki ilk oy isteğinde veritabanı kısıtı devreye girerse döner.)
+
+**Oyu geri alma yanıtı:** `{"ok": true, "voted_option_id": null, "show_results": <sahibi mi>, "total_votes": 36, "options": [...]}`. `show_results` `false` ise `options` yalnızca `id` ve `text` içerir (oy öncesi sonuç sızmasın). Oyu yoksa `400`, anket kapalıysa `403`.
 
 **Performans:** Akışta oy sayıları `annotate(Count(...))` ve `prefetch_related("options")` ile çekilir; N+1 sorgu olmaz. Kullanıcının oy verdiği anketler tek sorguyla bulunur.
 
@@ -474,18 +491,39 @@ Migration'ları Vercel build'inde çalıştırma; README'de yerelden çalıştı
 
 ---
 
+### FAZ 6 — Kullanıcı Deneyimi İyileştirmeleri
+
+> **Karar (2026-11-10):** Yayına alma sonraya bırakıldı; önce aşağıdaki 5 özellik eklenir.
+
+1. **Oyu değiştirme / geri alma:** Açık ankette oy verdikten sonra seçenekler sonuç çubuklarıyla birlikte tıklanabilir kalır; başka seçeneğe dokunmak oyu taşır. Altta "Oyumu geri al" butonu. JS kapalıyken de normal form olarak çalışır.
+2. **Anket süresi:** Oluşturma formunda "Süre" seçimi (Süresiz, 1 saat, 1 gün, 3 gün, 1 hafta) → `Poll.ends_at`. Süresi dolan anket otomatik kapalı sayılır (zamanlanmış iş yok; her istekte `ends_at` ile karşılaştırılır).
+3. **Elle kapatma:** Anket sahibi detay sayfasından ve "Anketlerim"den anketi kapatır / süresi dolmamışsa yeniden açar.
+4. **Akışta sıralama:** "En yeni", "En çok oy alan", "Oy vermediklerim" sekmeleri (`?sirala=`).
+5. **Paylaşım önizlemesi:** Tüm sayfalarda varsayılan `description` ve Open Graph / Twitter etiketleri; anket detayında `og:title` = soru, `og:description` = seçenekler. Sonuç sayıları önizlemeye konmaz. Görsel (`og:image`) bu fazda yok; dinamik görsel üretmek yeni paket (Pillow) gerektirir.
+
+Yeni tablo yok (yalnızca `polls_poll.ends_at` sütunu), bu yüzden yeni RLS migration'ı gerekmez.
+
+**Kontrol listesi:**
+- [ ] Oy verdikten sonra başka seçeneğe dokununca oy taşınıyor, "Oyumu geri al" çalışıyor (misafir ve üye)
+- [ ] 1 saatlik anket süresi dolunca oylamaya kapanıyor ve sonuçları herkes görüyor
+- [ ] Sahibi anketi kapatıp yeniden açabiliyor
+- [ ] Sıralama sekmeleri ve sayfalama birlikte çalışıyor
+- [ ] Detay linki paylaşıldığında soru ve seçenekler önizlemede görünüyor
+
+---
+
 ## 10. Sonraki Adımlar (Prototip Sonrası Fikirler)
 
 Prototip yayına girdikten sonra öncelik sırasına göre değerlendirilebilir:
 
 1. **Kötüye kullanım önleme:** oy ve anket oluşturma için hız sınırı, IP hash'i ile ek anonim oy kontrolü, basit küfür filtresi.
-2. **Anket süresi:** "24 saat sonra kapanır" seçeneği; süresi dolan anket sonuç modunda kalır.
+2. ~~**Anket süresi**~~ (Faz 6'da yapıldı).
 3. **Kategoriler / etiketler:** Yemek, Eğlence, Alışveriş, Moda... ve akışta filtre.
-4. **Sıralama:** "En yeni" / "Popüler (son 24 saatte en çok oy alan)" sekmeleri.
+4. ~~**Sıralama**~~ (Faz 6'da toplam oya göre yapıldı; "son 24 saatte popüler" ileride eklenebilir).
 5. **Yorumlar:** seçeneklere kısa gerekçeli yorumlar.
 6. **Anketi raporlama** ve admin moderasyon ekranı.
 7. **Parola sıfırlama** (e-posta gönderimi için Resend/SendGrid gibi bir servis).
-8. **Paylaşım görselleri:** Open Graph meta etiketleri, sosyal medyada güzel önizleme.
+8. **Paylaşım görselleri:** Open Graph metin etiketleri Faz 6'da eklendi; dinamik `og:image` görseli kaldı.
 9. **Profil sayfası:** `/u/<kullaniciadi>/` — kullanıcının açtığı anketler (takip sistemi olmadan).
 10. **Karanlık mod.**
 

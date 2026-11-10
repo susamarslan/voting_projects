@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-  {% if page.number == 1 and page.object_list %}
+  {% if page.number == 1 and not sort and page.object_list %}
     <section class="hero">
       <h1>Karar veremedin mi? <span class="hero-accent">Sor, herkes seçsin.</span></h1>
       <p>Aklındaki ikilemi paylaş, saniyeler içinde başkalarının ne düşündüğünü gör. Oy vermek için üye olman bile gerekmiyor.</p>
@@ -10,12 +10,22 @@
   {% else %}
     <h1 class="visually-hidden">Tüm anketler</h1>
   {% endif %}
+  <nav class="sort-tabs" aria-label="Sıralama">
+    {% for value, label in sorts %}
+      <a href="{% if value %}?sirala={{ value }}{% else %}{% url 'polls:feed' %}{% endif %}"{% if value == sort %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
   {% for poll in page %}
     {% include "polls/_poll_card.html" %}
   {% empty %}
     <div class="empty-state">
-      <span class="empty-emoji" aria-hidden="true">🦗</span>
-      <p>Burası çok sessiz... İlk kararsızlığı sen paylaş!</p>
+      {% if sort == "oy-vermediklerim" %}
+        <span class="empty-emoji" aria-hidden="true">🎉</span>
+        <p>Açık anketlerin hepsine oy verdin. Sıra sende: kendi kararsızlığını paylaş!</p>
+      {% else %}
+        <span class="empty-emoji" aria-hidden="true">🦗</span>
+        <p>Burası çok sessiz... İlk kararsızlığı sen paylaş!</p>
+      {% endif %}
       <a href="{% url 'polls:create' %}" class="button">+ Anket oluştur</a>
     </div>
   {% endfor %}

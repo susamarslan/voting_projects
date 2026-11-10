@@ -12,7 +12,7 @@ Yığın: Django 5.2 + Python 3.12, Supabase (yalnızca Postgres olarak), Django
 
 ## Çalışma kuralları
 
-- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Faz 0–5'in kodu tamamlandı; deploy adımları README.md'de.
+- Fazlar sırayla uygulanır. Her faz sonunda dur, testleri çalıştır, özetle ve kullanıcının onayını bekle. Faz 0–6'nın kodu tamamlandı; deploy adımları README.md'de (Vercel'e yayın henüz yapılmadı).
 - Git commit/push işlerini kullanıcı yapar; commit atma.
 - Frontend framework veya build adımı ekleme (React, Vue, Tailwind, Bootstrap, npm yok).
 - Yeni paket eklemeden önce sor.
@@ -46,9 +46,12 @@ Linter/formatter yapılandırılmadı.
   - Kullanıcı adının büyük/küçük harf duyarsız benzersizliği veritabanında `Lower("username")` UniqueConstraint ile sağlanır. Bu kısıt formlarda ayrıca `iexact` kontrolüyle Türkçe hata mesajına çevrilmelidir.
 - **Oy kuralı (planın 4.4 bölümündeki karar):** Her `Vote` kaydı tarayıcının `voting_projects_voter` çerez token'ını taşır; üye oylarında `user` da doldurulur. "Oy verdi mi?" kontrolü: üye için `user` **veya** `voter_token` eşleşmesi, misafir için yalnızca `voter_token`. CheckConstraint "en az biri dolu" şeklindedir.
   - Token'ı `polls/middleware.py` verir (`request.voter_token`, `request.voter_token_is_new`). Çerezi olmayan misafirin oyu reddedilir (yoksa her istekte yeni token = sınırsız oy).
-  - Oy kuralları ve sonuç hesapları `polls/services.py`'de. `decorate_polls()` her ankete `can_vote`, `show_results`, `voted_option_id` ve seçeneklere `percent`/`is_choice` ekler; listeleyen her view bunu çağırmalı.
+  - Faz 6'dan beri anket **açıkken** oy değiştirilebilir (`vote` mevcut oyu yeni seçeneğe taşır) ve geri alınabilir (`vote_withdraw`). Anket açık = `is_active` **ve** `ends_at` boş/gelecekte (`Poll.is_open`, sorguda `Poll.objects.open()`); kapanma zamanlanmış işle değil, her istekte karşılaştırmayla olur.
+  - Oy kuralları ve sonuç hesapları `polls/services.py`'de. `decorate_polls()` her ankete `can_vote` (= anket açık), `show_results`, `voted_option_id` ve seçeneklere `percent`/`is_choice` ekler; listeleyen her view bunu çağırmalı. Oy geri alındığında JSON'daki seçenekler, kişi sonuçları görmüyorsa sayı içermez.
   - Sonuç sayıları yalnızca `show_results` iken HTML'e basılır (oy öncesi sayfa kaynağında görünmemeli). Anket sahibi sonuçları her zaman görür ve oy da verebilir.
-  - Seçenek/sonuç markup'ı `templates/polls/_poll_options.html` ile `static/js/vote.js`'teki `renderResults` arasında ikizdir; biri değişirse diğeri de güncellenmeli.
+  - Seçenek/sonuç markup'ı (ve "Oyumu geri al" satırı) `templates/polls/_poll_options.html` ile `static/js/vote.js`'teki `renderOptions`/`renderVoteActions` arasında ikizdir; biri değişirse diğeri de güncellenmeli.
+- **Akış sıralaması:** `?sirala=` (`populer`, `oy-vermediklerim`; boş = en yeni), `views.FEED_SORTS`. Sayfalama parçası `sort` bağlamını linklere ekler.
+- **Paylaşım önizlemesi:** `base.html`'de `meta`/`og_title`/`og_description`/`meta_description` blokları; detay sayfası `polls/_share_text.html` ile seçenekleri koyar (sonuç sayıları asla).
 - **Anket sorguları:** Kart gösteren her liste `polls/views.py`'deki `poll_queryset()`'i kullanır (`select_related` + `prefetch_related("options")` + `total_votes` annotate). Burada `order_by` açıkça verilir, çünkü Django GROUP BY içeren sorgularda `Meta.ordering`'i uygulamaz. Akışın sabit sorgu sayısı `assertNumQueries` testiyle korunur.
 - **Anket formu:** Seçenekler ModelForm alanı değil; view `request.POST.getlist("options")` ile `PollForm(options=...)`'a verir. Seçenek hataları `form.option_errors` içinde tutulur, `is_valid()` bunları da hesaba katar. Şablon JS yokken 5 input çizer; `static/js/create_poll.js` boşları gizleyip ekle/sil ve aynı doğrulamayı yapar (sunucu kuralları değişirse JS'i de güncelle).
 - **Arayüz:** Tek stil dosyası `static/css/style.css`; renkler plandaki CSS değişkenleri. Seçenek rengi `data-index="1..5"` özniteliğinden `--c`/`--c-soft` olarak gelir (kartlar, sonuç çubukları ve oluşturma formu aynı mekanizmayı kullanır). `static/js/app.js` her sayfada yüklenir: Django messages'ı toast'a çevirir, `window.showToast(mesaj, "success"|"error"|"info")` sağlar, `data-confirm` ve `data-copy-url` davranışlarını yönetir. `500.html` bağlamsız render edildiği için `base.html`'i extend etmez.

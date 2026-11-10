@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django import template
 from django.utils import timezone
-from django.utils.timesince import timesince
+from django.utils.timesince import timesince, timeuntil
 
 register = template.Library()
 
@@ -15,3 +15,13 @@ def relative_time(value):
     if timezone.now() - value < timedelta(minutes=1):
         return "az önce"
     return f"{timesince(value, depth=1)} önce"
+
+
+@register.filter
+def time_left(value):
+    """Bitişe kalan süre: '2 gün kaldı', '1 dakikadan az kaldı'."""
+    if not value:
+        return ""
+    if value - timezone.now() < timedelta(minutes=1):
+        return "1 dakikadan az kaldı"
+    return f"{timeuntil(value, depth=1)} kaldı"

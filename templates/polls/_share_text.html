@@ -1,0 +1,1 @@
+{% comment %}Paylaşım önizlemesi metni (og:description): seçenekler + davet. Sonuç sayıları burada yok.{% endcomment %}{% for option in poll.options.all %}{{ option.text }}{% if not forloop.last %} · {% endif %}{% endfor %} — {% if poll.is_open %}Sen olsan hangisini seçerdin? Oy ver, sonuçları gör.{% else %}Oylama bitti, sonuçlara bak.{% endif %}

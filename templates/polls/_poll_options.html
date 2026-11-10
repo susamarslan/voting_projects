@@ -1,18 +1,21 @@
 {% comment %}
-Bir anketin seçenekleri: oy verilebiliyorsa her biri küçük bir POST formu (JS olmadan da çalışır),
-değilse sonuç satırı. Sayılar yalnızca show_results ise basılır (oy öncesi kaynakta görünmesin).
-static/js/vote.js oy sonrası aynı yapıyı (.option-result) üretir; burayı değiştirirsen orayı da güncelle.
+Bir anketin seçenekleri. Anket açıksa (can_vote) her seçenek küçük bir POST formudur (JS olmadan da
+çalışır); oy vermiş kişi başka seçeneğe basarak oyunu taşır. Anket kapalıysa sonuç satırları çizilir.
+Sayılar yalnızca show_results ise basılır (oy öncesi kaynakta görünmesin).
+static/js/vote.js aynı yapıyı (renderOptions) üretir; burayı değiştirirsen orayı da güncelle.
 {% endcomment %}
-<ul class="poll-options{% if poll.show_results %} show-results{% endif %}">
+<ul class="poll-options{% if poll.show_results %} show-results{% endif %}"
+    data-vote-url="{% url 'polls:vote' poll.pk %}" data-withdraw-url="{% url 'polls:vote_withdraw' poll.pk %}">
   {% for option in poll.options.all %}
     <li class="poll-option{% if option.is_choice %} is-choice{% endif %}" data-index="{{ forloop.counter }}">
       {% if poll.can_vote %}
         <form method="post" action="{% url 'polls:vote' poll.pk %}" class="vote-form">
           {% csrf_token %}
           <input type="hidden" name="option_id" value="{{ option.pk }}">
-          <button type="submit" class="option-button" data-option-id="{{ option.pk }}">
+          <button type="submit" class="option-button" data-option-id="{{ option.pk }}"{% if option.is_choice %} aria-pressed="true"{% endif %}>
             {% if poll.show_results %}<span class="option-bar" style="width: {{ option.percent|stringformat:'.1f' }}%"></span>{% endif %}
             <span class="option-text">{{ option.text }}</span>
+            {% if option.is_choice %}<span class="option-check" aria-label="Senin seçimin">✓</span>{% endif %}
             {% if poll.show_results %}<span class="option-stats">%{{ option.percent|floatformat:1 }} · {{ option.vote_count }} oy</span>{% endif %}
           </button>
         </form>
@@ -27,4 +30,13 @@ static/js/vote.js oy sonrası aynı yapıyı (.option-result) üretir; burayı d
     </li>
   {% endfor %}
 </ul>
+{% if poll.can_vote and poll.voted_option_id %}
+  <div class="vote-actions">
+    <span class="vote-hint">Fikrin mi değişti? Başka seçeneğe dokun.</span>
+    <form method="post" action="{% url 'polls:vote_withdraw' poll.pk %}" class="withdraw-form">
+      {% csrf_token %}
+      <button type="submit" class="link-button">Oyumu geri al</button>
+    </form>
+  </div>
+{% endif %}
 <p class="vote-error" role="alert" hidden></p>

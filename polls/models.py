@@ -3,9 +3,18 @@ from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 
 MIN_OPTIONS = 2
 MAX_OPTIONS = 5
+
+
+class PollQuerySet(models.QuerySet):
+    def open(self):
+        """Oylamaya açık anketler: aktif ve süresi dolmamış."""
+        return self.filter(is_active=True).filter(
+            Q(ends_at__isnull=True) | Q(ends_at__gt=timezone.now())
+        )
 
 
 class Poll(models.Model):
@@ -21,6 +30,9 @@ class Poll(models.Model):
     description = models.TextField("açıklama", max_length=500, blank=True)
     created_at = models.DateTimeField("oluşturulma", auto_now_add=True)
     is_active = models.BooleanField("aktif", default=True)
+    ends_at = models.DateTimeField("bitiş", null=True, blank=True)
+
+    objects = PollQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
@@ -32,6 +44,15 @@ class Poll(models.Model):
 
     def get_absolute_url(self):
         return reverse("polls:detail", args=[self.pk])
+
+    @property
+    def is_expired(self):
+        return self.ends_at is not None and self.ends_at <= timezone.now()
+
+    @property
+    def is_open(self):
+        """Oylamaya açık mı? (sahibi kapatmadı ve süresi dolmadı)"""
+        return self.is_active and not self.is_expired
 
 
 class Option(models.Model):

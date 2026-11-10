@@ -4,6 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Kararsızım · Kararsız kalma, sor!{% endblock %}</title>
+  {% block meta %}
+    {% with default_description="Karar veremedin mi? Anket aç, herkes seçsin. Oy vermek için üye olman bile gerekmiyor." %}
+      <meta name="description" content="{% block meta_description %}{{ default_description }}{% endblock %}">
+      <meta property="og:site_name" content="Kararsızım">
+      <meta property="og:locale" content="tr_TR">
+      <meta property="og:type" content="website">
+      <meta property="og:url" content="{{ request.build_absolute_uri }}">
+      <meta property="og:title" content="{% block og_title %}Kararsızım · Kararsız kalma, sor!{% endblock %}">
+      <meta property="og:description" content="{% block og_description %}{{ default_description }}{% endblock %}">
+      <meta name="twitter:card" content="summary">
+    {% endwith %}
+  {% endblock %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">

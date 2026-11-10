@@ -3,6 +3,7 @@
   <p class="poll-meta">
     <span class="poll-author">@{{ poll.author.username }}</span>
     · <time datetime="{{ poll.created_at|date:'c' }}">{{ poll.created_at|relative_time }}</time>
+    {% include "polls/_poll_status.html" %}
   </p>
   <h2 class="poll-question"><a href="{{ poll.get_absolute_url }}">{{ poll.question }}</a></h2>
   {% include "polls/_poll_options.html" %}

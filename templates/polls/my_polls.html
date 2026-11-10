@@ -10,10 +10,11 @@
       <p class="poll-meta">
         <time datetime="{{ poll.created_at|date:'c' }}">{{ poll.created_at|relative_time }}</time>
         · {{ poll.total_votes }} oy
-        {% if not poll.is_active %}· kapalı{% endif %}
+        {% include "polls/_poll_status.html" %}
       </p>
       <h2 class="poll-question"><a href="{{ poll.get_absolute_url }}">{{ poll.question }}</a></h2>
       <div class="my-poll-actions">
+        {% include "polls/_owner_actions.html" %}
         <form method="post" action="{% url 'polls:delete' poll.pk %}"
               data-confirm="Bu anketi silmek istediğine emin misin? Bu işlem geri alınamaz.">
           {% csrf_token %}

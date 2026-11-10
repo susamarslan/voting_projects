@@ -36,10 +36,18 @@ def percent(votes, total):
     return round(votes * 100 / total, 1) if total else 0.0
 
 
-def poll_results(poll):
-    """Her seçenek için oy sayısı ve yüzde (1 ondalık) + toplam oy."""
+def poll_results(poll, show_results=True):
+    """Her seçenek için oy sayısı ve yüzde (1 ondalık) + toplam oy.
+
+    show_results=False ise seçenekler yalnızca id ve metin içerir (sonuç sızmasın).
+    """
     options = list(poll.options.annotate(vote_count=Count("votes")).order_by("order", "pk"))
     total = sum(option.vote_count for option in options)
+    if not show_results:
+        return {
+            "total_votes": total,
+            "options": [{"id": option.pk, "text": option.text} for option in options],
+        }
     return {
         "total_votes": total,
         "options": [
@@ -54,6 +62,10 @@ def poll_results(poll):
     }
 
 
+def is_owner(request, poll):
+    return request.user.is_authenticated and poll.author_id == request.user.pk
+
+
 def options_with_counts():
     """Prefetch için: her seçeneğe vote_count ekleyen queryset."""
     return Option.objects.annotate(vote_count=Count("votes")).order_by("order", "pk")
@@ -65,15 +77,19 @@ def decorate_polls(request, polls):
     poll.voted_option_id, poll.can_vote, poll.show_results ve her seçenekte
     option.percent / option.is_choice. Sonuçlar yalnızca show_results ise
     şablona basılır; böylece oy vermeden önce sayfa kaynağında görünmez.
+
+    can_vote: anket açık olduğu sürece True; oy vermiş kişi için de (oyunu
+    başka seçeneğe taşıyabilir, bkz. plan 5. bölüm / Faz 6).
     """
     polls = list(polls)
     voted = voted_option_ids(request, polls)
-    user = request.user
     for poll in polls:
         poll.voted_option_id = voted.get(poll.pk)
-        is_owner = user.is_authenticated and poll.author_id == user.pk
-        poll.can_vote = poll.is_active and poll.voted_option_id is None
-        poll.show_results = poll.voted_option_id is not None or is_owner or not poll.is_active
+        is_open = poll.is_open
+        poll.can_vote = is_open
+        poll.show_results = (
+            poll.voted_option_id is not None or is_owner(request, poll) or not is_open
+        )
         for option in poll.options.all():
             option.percent = percent(option.vote_count, poll.total_votes)
             option.is_choice = option.pk == poll.voted_option_id

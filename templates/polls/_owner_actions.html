@@ -1,0 +1,15 @@
+{% comment %}Anket sahibinin kapat / yeniden aç butonu. `next` ile işlemden sonra aynı sayfaya dönülür.{% endcomment %}
+{% if poll.is_active and not poll.is_expired %}
+  <form method="post" action="{% url 'polls:close' poll.pk %}" class="inline-form"
+        data-confirm="Anketi kapatırsan artık oy verilemez ve sonuçları herkes görür. Kapatılsın mı?">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="button-secondary">🔒 Anketi kapat</button>
+  </form>
+{% elif not poll.is_expired %}
+  <form method="post" action="{% url 'polls:reopen' poll.pk %}" class="inline-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="button-secondary">🔓 Yeniden aç</button>
+  </form>
+{% endif %}
